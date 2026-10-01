@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Registro bidireccional 8 bits</title>
+  <meta name="description" content="Simulador del registro de corrimiento bidireccional de 8 bits: 8 flip-flops D y 8 multiplexores 2:1.">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="tarjeta encabezado">
+    <div class="estado">
+      <div class="estado-bits" id="bits" aria-live="polite" aria-label="Estado Q7 a Q0"></div>
+      <dl class="metricas">
+        <div><dt>Decimal</dt><dd id="m-dec">0</dd></div>
+        <div><dt>Hex</dt><dd id="m-hex">0x00</dd></div>
+        <div><dt>Flanco</dt><dd id="m-flanco">#0</dd></div>
+        <div><dt>Último bit que salió</dt><dd id="m-sale">—</dd></div>
+      </dl>
+    </div>
+    <p class="ayuda">Elige la dirección con <b>DIR</b>, el bit que entra con <b>SL</b>/<b>SR</b> y da un flanco con <b>CLK</b> (Espacio). Puedes hacer clic directamente sobre los pulsadores, los switches o los buses del circuito.</p>
+    <details class="como-funciona">
+      <summary>Cómo funciona</summary>
+      <p>Convención: Q7 a la izquierda, Q0 (LSB) a la derecha. Cada flip-flop toma su D de un mux 2:1 con selector DIR.</p>
+      <p class="mono">D<sub>i</sub> = DIR'·Q<sub>i−1</sub> + DIR·Q<sub>i+1</sub> &nbsp; con Q<sub>−1</sub> = SL y Q<sub>8</sub> = SR</p>
+      <p><b>DIR = 0</b>: corrimiento a la izquierda (Q0 → Q7), entra SL en Q0 y sale Q7. <b>DIR = 1</b>: a la derecha (Q7 → Q0), entra SR en Q7 y sale Q0.</p>
+      <p><b>CLR</b> es asíncrono: pone Q = 00000000 al instante y bloquea el reloj mientras está activo.</p>
+    </details>
+  </header>
+
+  <main class="layout">
+    <section class="tarjeta vistas">
+      <div class="vistas-barra">
+        <div class="pestanas" role="tablist">
+          <button role="tab" class="pestana" id="tab-protoboard" aria-selected="true" aria-controls="vista-protoboard">Protoboard</button>
+          <button role="tab" class="pestana" id="tab-circuito" aria-selected="false" aria-controls="vista-circuito">Circuito lógico</button>
+        </div>
+        <button class="boton secundario" id="exportar-vista">Exportar PNG</button>
+      </div>
+      <div class="vista" id="vista-protoboard" role="tabpanel" aria-labelledby="tab-protoboard"></div>
+      <div class="vista" id="vista-circuito" role="tabpanel" aria-labelledby="tab-circuito" hidden></div>
+    </section>
+
+    <aside class="tarjeta panel">
+      <h2>Controles</h2>
+      <div class="fila-reloj">
+        <button class="boton clk" id="btn-clk" data-control="clk">CLK <kbd>Espacio</kbd></button>
+        <button class="boton clr" id="btn-clr" data-control="clr" title="Activo mientras se mantiene presionado">CLR <kbd>C</kbd></button>
+      </div>
+
+      <div class="control">
+        <span class="control-nombre">DIR <kbd>D</kbd></span>
+        <button class="switch-dir" id="btn-dir" data-control="dir" role="switch" aria-checked="false">
+          <span class="lado izq">◀ IZQ</span><span class="lado der">DER ▶</span>
+        </button>
+      </div>
+      <div class="control">
+        <span class="control-nombre">SL <kbd>L</kbd></span>
+        <button class="bit-toggle" id="btn-sl" data-control="sl" role="switch" aria-checked="true">1</button>
+        <span class="control-nombre">SR <kbd>R</kbd></span>
+        <button class="bit-toggle" id="btn-sr" data-control="sr" role="switch" aria-checked="false">0</button>
+      </div>
+      <div class="control">
+        <span class="control-nombre">AUTO <kbd>A</kbd></span>
+        <button class="bit-toggle" id="btn-auto" data-control="auto" role="switch" aria-checked="false">0</button>
+        <input type="range" id="frecuencia" min="0.5" max="10" step="0.5" value="2" aria-label="Frecuencia del reloj automático">
+        <output id="frecuencia-valor" for="frecuencia">2 Hz</output>
+      </div>
+
+      <div class="control columna">
+        <span class="control-nombre">Carga paralela (Q7…Q0, se aplica en el siguiente flanco)</span>
+        <div class="carga">
+          <div class="carga-bits" id="carga-bits"></div>
+          <button class="boton secundario" id="btn-cargar">Cargar</button>
+        </div>
+      </div>
+
+      <label class="control casilla">
+        <input type="checkbox" id="chk-desfasado"> Relojes desfasados (P9)
+      </label>
+
+      <div class="acciones">
+        <button class="boton secundario" id="btn-secuencia">Secuencia de prueba</button>
+        <button class="boton secundario" id="btn-demo">Demo P9</button>
+        <button class="boton secundario" id="btn-reiniciar">Reiniciar</button>
+      </div>
+
+      <h2>Monitor serie <small>9600 baud</small></h2>
+      <pre class="monitor" id="monitor" aria-live="polite"></pre>
+      <form class="monitor-entrada" id="form-serie">
+        <input type="text" id="entrada-serie" placeholder="P10110011 o ?" autocomplete="off" spellcheck="false" aria-label="Comando serie">
+        <button class="boton secundario" type="submit">Enviar</button>
+      </form>
+      <div class="acciones">
+        <button class="boton secundario" id="btn-monitor-limpiar">Limpiar</button>
+        <button class="boton secundario" id="btn-monitor-copiar">Copiar</button>
+      </div>
+    </aside>
+
+    <section class="tarjeta carta">
+      <div class="carta-barra">
+        <h2>Carta de tiempos</h2>
+        <div class="acciones">
+          <button class="boton secundario" id="btn-carta-limpiar">Limpiar</button>
+          <button class="boton secundario" id="btn-carta-exportar">Exportar PNG</button>
+        </div>
+      </div>
+      <div class="carta-cuerpo" id="carta"></div>
+    </section>
+  </main>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
